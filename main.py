@@ -1,16 +1,17 @@
-# This is a sample Python script.
+# pip install redis
+import redis
+from redis.cluster import ClusterNode
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+# Redis nodes for bootstrapping.
+CLUSTER_NODES = [ClusterNode("localhost", 6371),
+                 ClusterNode("localhost", 6372),
+                 ClusterNode("localhost", 6373)]
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+def connect_cluster():
+    return redis.RedisCluster(startup_nodes=CLUSTER_NODES)
 
 
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print_hi('PyCharm')
+    redis = connect_cluster()
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
