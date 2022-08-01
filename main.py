@@ -52,7 +52,106 @@ def benchmark_list(redis):
     redis.delete(key)
 
 
+def benchmark_set(redis):
+    """
+    Run a benchmark for the SET data structure
+    :param redis: Redis connection
+    """
+
+    # Insert set of entries against a single key
+    key = "benchmark:set"
+    j = 0
+    values = []
+    for _ in range(0, ENTRY_COUNT):
+        j += 1
+        value = os.urandom(VALUE_SIZE)
+        values.append(value)
+        if j <= CHUNK:
+            redis.sadd(key, *values)
+            values.clear()
+            j = 0
+    if values:
+        redis.sadd(key, *values)
+
+    # Get stats
+    insert_count = redis.scard(key)
+    memory_usage = redis.execute_command("MEMORY USAGE", key)
+    bytes_per_entry = memory_usage / insert_count
+    overhead = bytes_per_entry - VALUE_SIZE
+    print(f'SET: Inserted count: {insert_count}. Memory usage: {memory_usage}. Bytes per entry: {bytes_per_entry}. Overhead per entry: {overhead}')
+
+    # Clean up
+    redis.delete(key)
+
+
+def benchmark_sorted_set(redis):
+    """
+    Run a benchmark for the SORTED SET data structure
+    :param redis: Redis connection
+    """
+
+    # Insert sorted set of entries against a single key
+    key = "benchmark:zset"
+    j = 0
+    values = {}
+    for _ in range(0, ENTRY_COUNT):
+        j += 1
+        value = os.urandom(VALUE_SIZE)
+        values[value] = 0
+        if j <= CHUNK:
+            redis.zadd(key, values)
+            values.clear()
+            j = 0
+    if values:
+        redis.zadd(key, values)
+
+    # Get stats
+    insert_count = redis.zcard(key)
+    memory_usage = redis.execute_command("MEMORY USAGE", key)
+    bytes_per_entry = memory_usage / insert_count
+    overhead = bytes_per_entry - VALUE_SIZE
+    print(f'SORTED SET: Inserted count: {insert_count}. Memory usage: {memory_usage}. Bytes per entry: {bytes_per_entry}. Overhead per entry: {overhead}')
+
+    # Clean up
+    redis.delete(key)
+
+
+def benchmark_hash(redis):
+    """
+    Run a benchmark for the HASH data structure
+    :param redis: Redis connection
+    """
+
+    # Insert hash of entries against a single key
+    key = "benchmark:hash"
+    j = 0
+    values = {}
+    for _ in range(0, ENTRY_COUNT):
+        j += 1
+        value = os.urandom(VALUE_SIZE)
+        values[value] = 0
+        if j <= CHUNK:
+            redis.hset(key, mapping=values)
+            values.clear()
+            j = 0
+    if values:
+        redis.hset(key, mapping=values)
+
+    # Get stats
+    insert_count = redis.hlen(key)
+    memory_usage = redis.execute_command("MEMORY USAGE", key)
+    bytes_per_entry = memory_usage / insert_count
+    overhead = bytes_per_entry - VALUE_SIZE
+    print(f'HASH: Inserted count: {insert_count}. Memory usage: {memory_usage}. Bytes per entry: {bytes_per_entry}. Overhead per entry: {overhead}')
+
+    # Clean up
+    redis.delete(key)
+
+
 if __name__ == '__main__':
     redis = connect_cluster()
     benchmark_list(redis)
+    benchmark_set(redis)
+    benchmark_sorted_set(redis)
+    benchmark_hash(redis)
 
