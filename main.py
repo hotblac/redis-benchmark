@@ -1,6 +1,7 @@
-# pip install redis
+# pip install redis tabulate
 import redis
 from redis.cluster import ClusterNode
+from tabulate import tabulate
 import os
 
 ENTRY_COUNT = 1000000
@@ -27,6 +28,7 @@ def benchmark_list(redis):
     """
 
     # Insert list of entries against a single key
+    print(f'Inserting {ENTRY_COUNT} entries into list')
     key = "benchmark:list"
     j = 0
     values = []
@@ -43,13 +45,14 @@ def benchmark_list(redis):
 
     # Get stats
     insert_count = redis.llen(key)
+    if insert_count != ENTRY_COUNT:
+        raise ValueError('Incorrect number of entries. Expected: ' + str(ENTRY_COUNT) + ' actual: ' + str(insert_count))
     memory_usage = redis.execute_command("MEMORY USAGE", key)
-    bytes_per_entry = memory_usage / insert_count
-    overhead = bytes_per_entry - VALUE_SIZE
-    print(f'LIST: Inserted count: {insert_count}. Memory usage: {memory_usage}. Bytes per entry: {bytes_per_entry}. Overhead per entry: {overhead}')
 
     # Clean up
     redis.delete(key)
+
+    return memory_usage
 
 
 def benchmark_set(redis):
@@ -59,6 +62,7 @@ def benchmark_set(redis):
     """
 
     # Insert set of entries against a single key
+    print(f'Inserting {ENTRY_COUNT} entries into set')
     key = "benchmark:set"
     j = 0
     values = []
@@ -75,13 +79,14 @@ def benchmark_set(redis):
 
     # Get stats
     insert_count = redis.scard(key)
+    if insert_count != ENTRY_COUNT:
+        raise ValueError('Incorrect number of entries. Expected: ' + str(ENTRY_COUNT) + ' actual: ' + str(insert_count))
     memory_usage = redis.execute_command("MEMORY USAGE", key)
-    bytes_per_entry = memory_usage / insert_count
-    overhead = bytes_per_entry - VALUE_SIZE
-    print(f'SET: Inserted count: {insert_count}. Memory usage: {memory_usage}. Bytes per entry: {bytes_per_entry}. Overhead per entry: {overhead}')
 
     # Clean up
     redis.delete(key)
+
+    return memory_usage
 
 
 def benchmark_sorted_set(redis):
@@ -91,6 +96,7 @@ def benchmark_sorted_set(redis):
     """
 
     # Insert sorted set of entries against a single key
+    print(f'Inserting {ENTRY_COUNT} entries into sorted set')
     key = "benchmark:zset"
     j = 0
     values = {}
@@ -107,13 +113,14 @@ def benchmark_sorted_set(redis):
 
     # Get stats
     insert_count = redis.zcard(key)
+    if insert_count != ENTRY_COUNT:
+        raise ValueError('Incorrect number of entries. Expected: ' + str(ENTRY_COUNT) + ' actual: ' + str(insert_count))
     memory_usage = redis.execute_command("MEMORY USAGE", key)
-    bytes_per_entry = memory_usage / insert_count
-    overhead = bytes_per_entry - VALUE_SIZE
-    print(f'SORTED SET: Inserted count: {insert_count}. Memory usage: {memory_usage}. Bytes per entry: {bytes_per_entry}. Overhead per entry: {overhead}')
 
     # Clean up
     redis.delete(key)
+
+    return memory_usage
 
 
 def benchmark_hash(redis):
@@ -123,6 +130,7 @@ def benchmark_hash(redis):
     """
 
     # Insert hash of entries against a single key
+    print(f'Inserting {ENTRY_COUNT} entries into hash')
     key = "benchmark:hash"
     j = 0
     values = {}
@@ -139,19 +147,33 @@ def benchmark_hash(redis):
 
     # Get stats
     insert_count = redis.hlen(key)
+    if insert_count != ENTRY_COUNT:
+        raise ValueError('Incorrect number of entries. Expected: ' + str(ENTRY_COUNT) + ' actual: ' + str(insert_count))
     memory_usage = redis.execute_command("MEMORY USAGE", key)
-    bytes_per_entry = memory_usage / insert_count
-    overhead = bytes_per_entry - VALUE_SIZE
-    print(f'HASH: Inserted count: {insert_count}. Memory usage: {memory_usage}. Bytes per entry: {bytes_per_entry}. Overhead per entry: {overhead}')
 
     # Clean up
     redis.delete(key)
 
+    return memory_usage
+
+
+def print_results(results):
+    table = []
+    for struct, memory_usage in results.items():
+        bytes_per_entry = memory_usage / ENTRY_COUNT
+        overhead = bytes_per_entry - VALUE_SIZE
+        table.append([struct, ENTRY_COUNT, memory_usage, bytes_per_entry, overhead])
+    print(tabulate(table,
+                   headers=['Structure', 'Count', 'Total memory (bytes)', 'Memory per entry (bytes)', 'Overhead per entry (bytes)'],
+                   floatfmt='.2f'))
+
 
 if __name__ == '__main__':
     redis = connect_cluster()
-    benchmark_list(redis)
-    benchmark_set(redis)
-    benchmark_sorted_set(redis)
-    benchmark_hash(redis)
-
+    results = {
+        'list': benchmark_list(redis),
+        'set': benchmark_set(redis),
+        'sorted set (zset)': benchmark_sorted_set(redis),
+        'hash': benchmark_hash(redis)
+    }
+    print_results(results)
